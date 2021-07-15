@@ -62,7 +62,7 @@ class Scanner:
         )
         self._producer_thread.start()
 
-    def get_results(self) -> Generator[ServerScanResult, None, None]:
+    def get_results(self, timeout=None) -> Generator[ServerScanResult, None, None]:
         # TODO: Remove in v5.0.0
         if self._api_compat_is_enabled:
             self.start_scans(self._api_compat_queued_scans)
@@ -71,7 +71,7 @@ class Scanner:
             raise ValueError("No scan requests have been submitted")
 
         while True:
-            server_scan_result = self._server_scan_results_queue.get(block=True)
+            server_scan_result = self._server_scan_results_queue.get(block=True, timeout=timeout)
             self._server_scan_results_queue.task_done()
             if isinstance(server_scan_result, NoMoreServerScansSentinel):
                 # No more scans to run
