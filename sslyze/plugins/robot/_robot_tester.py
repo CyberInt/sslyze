@@ -24,15 +24,22 @@ from sslyze.errors import ServerRejectedTlsHandshake
 from sslyze.server_connectivity import ServerConnectivityInfo, TlsVersionEnum, ClientAuthRequirementEnum
 
 
-class RobotScanResultEnum(Enum):
-    """An enum to provide the result of running a RobotScanCommand.
+class RobotScanResultEnum(str, Enum):
+    """The result of attempting exploit the ROBOT issue on the server.
+
+    Attributes:
+        VULNERABLE_WEAK_ORACLE: The server is vulnerable but the attack would take too long.
+        VULNERABLE_STRONG_ORACLE: The server is vulnerable and real attacks are feasible.
+        NOT_VULNERABLE_NO_ORACLE: The server supports RSA cipher suites but does not act as an oracle.
+        NOT_VULNERABLE_RSA_NOT_SUPPORTED: The server does not supports RSA cipher suites.
+        UNKNOWN_INCONSISTENT_RESULTS: Could not determine whether the server is vulnerable or not.
     """
 
-    VULNERABLE_WEAK_ORACLE = 1  #: The server is vulnerable but the attack would take too long
-    VULNERABLE_STRONG_ORACLE = 2  #: The server is vulnerable and real attacks are feasible
-    NOT_VULNERABLE_NO_ORACLE = 3  #: The server supports RSA cipher suites but does not act as an oracle
-    NOT_VULNERABLE_RSA_NOT_SUPPORTED = 4  #: The server does not supports RSA cipher suites
-    UNKNOWN_INCONSISTENT_RESULTS = 5  #: Could not determine whether the server is vulnerable or not
+    VULNERABLE_WEAK_ORACLE = "VULNERABLE_WEAK_ORACLE"
+    VULNERABLE_STRONG_ORACLE = "VULNERABLE_STRONG_ORACLE"
+    NOT_VULNERABLE_NO_ORACLE = "NOT_VULNERABLE_NO_ORACLE"
+    NOT_VULNERABLE_RSA_NOT_SUPPORTED = "NOT_VULNERABLE_RSA_NOT_SUPPORTED"
+    UNKNOWN_INCONSISTENT_RESULTS = "UNKNOWN_INCONSISTENT_RESULTS"
 
 
 class RobotPmsPaddingPayloadEnum(Enum):
@@ -67,8 +74,7 @@ class _RobotTlsRecordPayloads:
         modulus: int,
         exponent: int,
     ) -> TlsRsaClientKeyExchangeRecord:
-        """A client key exchange record with a hardcoded pre_master_secret, and a valid or invalid padding.
-        """
+        """A client key exchange record with a hardcoded pre_master_secret, and a valid or invalid padding."""
         pms_padding = cls._compute_pms_padding(modulus)
         tls_version_hex = binascii.b2a_hex(TlsRecordTlsVersionBytes[tls_version.name].value).decode("ascii")
 
@@ -99,8 +105,7 @@ class _RobotTlsRecordPayloads:
 
     @classmethod
     def get_finished_record_bytes(cls, tls_version: tls_parser.tls_version.TlsVersionEnum) -> bytes:
-        """The Finished TLS record corresponding to the hardcoded PMS used in the Client Key Exchange record.
-        """
+        """The Finished TLS record corresponding to the hardcoded PMS used in the Client Key Exchange record."""
         # TODO(AD): The ROBOT poc script uses the same Finished record for all possible client hello (default, GCM,
         # etc.); as the Finished record contains a hashes of all previous records, it will be wrong and will cause
         # servers to send a TLS Alert 20
@@ -118,8 +123,7 @@ class RobotServerResponsesAnalyzer:
         self._attempts_count = attempts_count
 
     def compute_result_enum(self) -> RobotScanResultEnum:
-        """Look at the server's response to each ROBOT payload and return the conclusion of the analysis.
-        """
+        """Look at the server's response to each ROBOT payload and return the conclusion of the analysis."""
         # Ensure the results were consistent
         for payload_enum, server_responses in self._payload_responses.items():
             # We ran the check a number of times per payload and the responses should be the same
@@ -229,7 +233,8 @@ def _get_rsa_parameters(
     server_info: ServerConnectivityInfo, tls_version: TlsVersionEnum, openssl_cipher_string: str
 ) -> Optional[RSAPublicNumbers]:
     ssl_connection = server_info.get_preconfigured_tls_connection(
-        override_tls_version=tls_version, should_use_legacy_openssl=True,
+        override_tls_version=tls_version,
+        should_use_legacy_openssl=True,
     )
     ssl_connection.ssl_client.set_cipher_list(openssl_cipher_string)
     parsed_cert = None
@@ -331,8 +336,7 @@ class ServerResponseToRobot(Exception):
 
 
 def do_handshake_with_robot(self):  # type: ignore
-    """Modified do_handshake() to send a ROBOT payload and return the result.
-    """
+    """Modified do_handshake() to send a ROBOT payload and return the result."""
     try:
         # Start the handshake using nassl - will throw WantReadError right away
         self._ssl.do_handshake()

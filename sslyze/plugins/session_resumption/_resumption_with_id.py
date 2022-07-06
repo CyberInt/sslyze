@@ -1,4 +1,4 @@
-from enum import Enum, unique
+from enum import Enum
 from typing import Optional, Tuple
 
 import nassl
@@ -7,21 +7,21 @@ from sslyze.errors import ServerRejectedTlsHandshake
 from sslyze.server_connectivity import ServerConnectivityInfo, TlsVersionEnum
 
 
-@unique
-class TlsSessionIdSupportEnum(Enum):
-    """The result of attempting to resume TLS sessions with the server using Session IDs.
+class TlsResumptionSupportEnum(str, Enum):
+    """The result of attempting to resume TLS sessions with the server.
 
     Attributes:
         FULLY_SUPPORTED: All the session resumption attempts were successful.
         PARTIALLY_SUPPORTED: Only some of the session resumption attempts were successful.
         NOT_SUPPORTED: None of the session resumption attempts were successful.
-        SERVER_IS_TLS_1_3_ONLY: The server only supports TLS 1.3 which does not support Session IDs resumption.
+        SERVER_IS_TLS_1_3_ONLY: The server only supports TLS 1.3, which does not support Session ID nor TLS Tickets
+            resumption.
     """
 
-    FULLY_SUPPORTED = 1
-    PARTIALLY_SUPPORTED = 2
-    NOT_SUPPORTED = 3
-    SERVER_IS_TLS_1_3_ONLY = 4
+    FULLY_SUPPORTED = "FULLY_SUPPORTED"
+    PARTIALLY_SUPPORTED = "PARTIALLY_SUPPORTED"
+    NOT_SUPPORTED = "NOT_SUPPORTED"
+    SERVER_IS_TLS_1_3_ONLY = "SERVER_IS_TLS_1_3_ONLY"
 
 
 class _ScanJobResultEnum(Enum):
@@ -30,8 +30,7 @@ class _ScanJobResultEnum(Enum):
 
 
 class ServerOnlySupportsTls13(Exception):
-    """If the server only supports TLS 1.3 or higher, it does not support session resumption with IDs or tickets.
-    """
+    """If the server only supports TLS 1.3 or higher, it does not support session resumption with IDs or tickets."""
 
     pass
 
@@ -82,16 +81,14 @@ def retrieve_tls_session(
 
 
 def _extract_session_id(ssl_session: nassl._nassl.SSL_SESSION) -> str:
-    """Extract the SSL session ID from a SSL session object or raises IndexError if the session ID was not set.
-    """
+    """Extract the SSL session ID from a SSL session object or raises IndexError if the session ID was not set."""
     session_string = ((ssl_session.as_text()).split("Session-ID:"))[1]
     session_id = (session_string.split("Session-ID-ctx:"))[0].strip()
     return session_id
 
 
 def resume_with_session_id(server_info: ServerConnectivityInfo) -> Tuple[_ScanJobResultEnum, bool]:
-    """Perform one session resumption using Session IDs.
-    """
+    """Perform one session resumption using Session IDs."""
     # Create a new TLS session with the server
     session1 = retrieve_tls_session(server_info)
     try:

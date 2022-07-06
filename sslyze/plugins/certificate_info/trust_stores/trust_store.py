@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cryptography.x509.base import Certificate
-from cryptography.x509.extensions import ExtensionNotFound  # type: ignore
-from cryptography.x509.oid import ObjectIdentifier  # type: ignore
+from cryptography.x509.extensions import ExtensionNotFound, CertificatePolicies
+from cryptography.x509.oid import ObjectIdentifier
 from cryptography.x509.oid import ExtensionOID
-from typing import List
+from typing import List, cast
 from typing import Optional
 
 
@@ -25,8 +25,7 @@ class TrustStore:
     ev_oids: Optional[List[ObjectIdentifier]] = None
 
     def is_certificate_extended_validation(self, certificate: Certificate) -> bool:
-        """Is the supplied server certificate EV?
-        """
+        """Is the supplied server certificate EV?"""
         if not self.ev_oids:
             raise ValueError("No EV OIDs supplied for {} store - cannot detect EV certificates".format(self.name))
 
@@ -35,7 +34,8 @@ class TrustStore:
         except ExtensionNotFound:
             return False
 
-        for policy in cert_policies_ext.value:
+        cert_policies_value = cast(CertificatePolicies, cert_policies_ext.value)
+        for policy in cert_policies_value:
             if policy.policy_identifier in self.ev_oids:
                 return True
         return False

@@ -14,7 +14,7 @@ from sslyze.plugins.plugin_base import (
     ScanCommandImplementation,
     ScanCommandResult,
     ScanJob,
-    ScanCommandExtraArguments,
+    ScanCommandExtraArgument,
     ScanCommandWrongUsageError,
     ScanJobResult,
 )
@@ -35,14 +35,12 @@ class CipherSuitesScanResult(ScanCommandResult):
     """
 
     tls_version_used: TlsVersionEnum
-
     accepted_cipher_suites: List[CipherSuiteAcceptedByServer]
     rejected_cipher_suites: List[CipherSuiteRejectedByServer]
 
     @property
-    def is_tls_protocol_version_supported(self) -> bool:
-        """Is the SSL/TLS version used to connect the server supported by it?
-        """
+    def is_tls_version_supported(self) -> bool:
+        """Is the SSL/TLS version used to connect the server supported by it?"""
         return True if self.accepted_cipher_suites else False
 
 
@@ -95,7 +93,7 @@ class _CipherSuitesScanImplementation(ScanCommandImplementation[CipherSuitesScan
 
     @classmethod
     def scan_jobs_for_scan_command(
-        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArguments] = None
+        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArgument] = None
     ) -> List[ScanJob]:
         if extra_arguments:
             raise ScanCommandWrongUsageError("This plugin does not take extra arguments")
@@ -150,48 +148,42 @@ class _CipherSuitesScanImplementation(ScanCommandImplementation[CipherSuitesScan
 
 
 class Sslv20ScanImplementation(_CipherSuitesScanImplementation):
-    """Test a server for SSL 2.0 support.
-    """
+    """Test a server for SSL 2.0 support."""
 
     cli_connector_cls = _Sslv20CliConnector
     _tls_version = TlsVersionEnum.SSL_2_0
 
 
 class Sslv30ScanImplementation(_CipherSuitesScanImplementation):
-    """Test a server for SSL 3.0 support.
-    """
+    """Test a server for SSL 3.0 support."""
 
     cli_connector_cls = _Sslv30CliConnector
     _tls_version = TlsVersionEnum.SSL_3_0
 
 
 class Tlsv10ScanImplementation(_CipherSuitesScanImplementation):
-    """Test a server for TLS 1.0 support.
-    """
+    """Test a server for TLS 1.0 support."""
 
     cli_connector_cls = _Tlsv10CliConnector
     _tls_version = TlsVersionEnum.TLS_1_0
 
 
 class Tlsv11ScanImplementation(_CipherSuitesScanImplementation):
-    """Test a server for TLS 1.1 support.
-    """
+    """Test a server for TLS 1.1 support."""
 
     cli_connector_cls = _Tlsv11CliConnector
     _tls_version = TlsVersionEnum.TLS_1_1
 
 
 class Tlsv12ScanImplementation(_CipherSuitesScanImplementation):
-    """Test a server for TLS 1.2 support.
-    """
+    """Test a server for TLS 1.2 support."""
 
     cli_connector_cls = _Tlsv12CliConnector
     _tls_version = TlsVersionEnum.TLS_1_2
 
 
 class Tlsv13ScanImplementation(_CipherSuitesScanImplementation):
-    """Test a server for TLS 1.3 support.
-    """
+    """Test a server for TLS 1.3 support."""
 
     cli_connector_cls = _Tlsv13CliConnector
     _tls_version = TlsVersionEnum.TLS_1_3
