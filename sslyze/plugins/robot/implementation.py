@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 from typing import Optional, List, Dict
 
+import pydantic
+
+from sslyze.json.scan_attempt_json import ScanCommandAttemptAsJson
 from sslyze.plugins.plugin_base import (
     ScanCommandResult,
     ScanCommandImplementation,
-    ScanCommandExtraArguments,
+    ScanCommandExtraArgument,
     ScanJob,
     ScanCommandWrongUsageError,
     ScanCommandCliConnector,
@@ -30,6 +33,14 @@ class RobotScanResult(ScanCommandResult):
     """
 
     robot_result: RobotScanResultEnum
+
+
+# Identical fields in the JSON output
+RobotScanResultAsJson = pydantic.dataclasses.dataclass(RobotScanResult, frozen=True)
+
+
+class RobotScanAttemptAsJson(ScanCommandAttemptAsJson):
+    result: Optional[RobotScanResultAsJson]  # type: ignore
 
 
 class _RobotCliConnector(ScanCommandCliConnector[RobotScanResult, None]):
@@ -58,8 +69,7 @@ class _RobotCliConnector(ScanCommandCliConnector[RobotScanResult, None]):
 
 
 class RobotImplementation(ScanCommandImplementation[RobotScanResult, None]):
-    """Test a server for the ROBOT vulnerability.
-    """
+    """Test a server for the ROBOT vulnerability."""
 
     cli_connector_cls = _RobotCliConnector
 
@@ -67,7 +77,7 @@ class RobotImplementation(ScanCommandImplementation[RobotScanResult, None]):
 
     @classmethod
     def scan_jobs_for_scan_command(
-        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArguments] = None
+        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArgument] = None
     ) -> List[ScanJob]:
         if extra_arguments:
             raise ScanCommandWrongUsageError("This plugin does not take extra arguments")

@@ -3,13 +3,15 @@ import types
 from dataclasses import dataclass
 from typing import List, Optional
 
+import pydantic
 from nassl._nassl import WantReadError
 
+from sslyze.json.scan_attempt_json import ScanCommandAttemptAsJson
 from sslyze.plugins.plugin_base import (
     ScanCommandResult,
     ScanCommandImplementation,
     ScanJob,
-    ScanCommandExtraArguments,
+    ScanCommandExtraArgument,
     ScanCommandWrongUsageError,
     ScanCommandCliConnector,
     ScanJobResult,
@@ -35,6 +37,14 @@ class HeartbleedScanResult(ScanCommandResult):
     is_vulnerable_to_heartbleed: bool
 
 
+# Identical fields in the JSON output
+HeartbleedScanResultAsJson = pydantic.dataclasses.dataclass(HeartbleedScanResult, frozen=True)
+
+
+class HeartbleedScanAttemptAsJson(ScanCommandAttemptAsJson):
+    result: Optional[HeartbleedScanResultAsJson]  # type: ignore
+
+
 class _HeartbleedCliConnector(ScanCommandCliConnector[HeartbleedScanResult, None]):
 
     _cli_option = "heartbleed"
@@ -53,14 +63,13 @@ class _HeartbleedCliConnector(ScanCommandCliConnector[HeartbleedScanResult, None
 
 
 class HeartbleedImplementation(ScanCommandImplementation[HeartbleedScanResult, None]):
-    """Test a server for the OpenSSL Heartbleed vulnerability.
-    """
+    """Test a server for the OpenSSL Heartbleed vulnerability."""
 
     cli_connector_cls = _HeartbleedCliConnector
 
     @classmethod
     def scan_jobs_for_scan_command(
-        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArguments] = None
+        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArgument] = None
     ) -> List[ScanJob]:
         if extra_arguments:
             raise ScanCommandWrongUsageError("This plugin does not take extra arguments")
@@ -109,18 +118,15 @@ def _test_heartbleed(server_info: ServerConnectivityInfo) -> bool:
 
 
 class _VulnerableToHeartbleed(Exception):
-    """Exception to raise during the handshake to hijack the flow and test for Heartbleed.
-    """
+    """Exception to raise during the handshake to hijack the flow and test for Heartbleed."""
 
 
 class _NotVulnerableToHeartbleed(Exception):
-    """Exception to raise during the handshake to hijack the flow and test for Heartbleed.
-    """
+    """Exception to raise during the handshake to hijack the flow and test for Heartbleed."""
 
 
 def _do_handshake_with_heartbleed(self):  # type: ignore
-    """Modified do_handshake() to send a heartbleed payload and return the result.
-    """
+    """Modified do_handshake() to send a heartbleed payload and return the result."""
     try:
         # Start the handshake using nassl - will throw WantReadError right away
         self._ssl.do_handshake()
