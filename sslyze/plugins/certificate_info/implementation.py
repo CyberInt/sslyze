@@ -17,15 +17,15 @@ from sslyze.plugins.plugin_base import (
     ScanCommandImplementation,
     ScanJob,
     ScanCommandResult,
-    ScanCommandExtraArguments,
+    ScanCommandExtraArgument,
     ScanJobResult,
 )
 from sslyze.server_connectivity import ServerConnectivityInfo, TlsVersionEnum
 
 
 @dataclass(frozen=True)
-class CertificateInfoExtraArguments(ScanCommandExtraArguments):
-    """Additional configuration for running the CERTIFICATE_INFO scan command.
+class CertificateInfoExtraArgument(ScanCommandExtraArgument):
+    """Additional configuration for running the certificate_info scan command.
 
     Attributes:
         custom_ca_file: The path to a custom trust store file to use for certificate validation. The file should contain
@@ -55,14 +55,13 @@ class CertificateInfoScanResult(ScanCommandResult):
 
 
 class CertificateInfoImplementation(ScanCommandImplementation[CertificateInfoScanResult, None]):
-    """Retrieve and analyze a server's certificate(s) to verify its validity.
-    """
+    """Retrieve and analyze a server's certificate(s) to verify its validity."""
 
     cli_connector_cls = _CertificateInfoCliConnector
 
     @classmethod
     def scan_jobs_for_scan_command(
-        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[CertificateInfoExtraArguments] = None
+        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[CertificateInfoExtraArgument] = None
     ) -> List[ScanJob]:
         custom_ca_file = extra_arguments.custom_ca_file if extra_arguments else None
 
@@ -89,28 +88,38 @@ class CertificateInfoImplementation(ScanCommandImplementation[CertificateInfoSca
         ]
         return scan_jobs
 
+    _EXPECTED_SCAN_JOB_RESULTS_COUNT = 3
+
     @classmethod
     def result_for_completed_scan_jobs(
         cls, server_info: ServerConnectivityInfo, scan_job_results: List[ScanJobResult]
     ) -> CertificateInfoScanResult:
-        if len(scan_job_results) != 3:
+        if len(scan_job_results) != cls._EXPECTED_SCAN_JOB_RESULTS_COUNT:
             raise RuntimeError(f"Unexpected number of scan jobs received: {scan_job_results}")
 
         # Only keep certificate deployments that are different
         # Leaf certificate => certificate chain, OCSP response
         all_configured_certificate_chains: Dict[str, Tuple[List[str], Optional[nassl._nassl.OCSP_RESPONSE]]] = {}
+        all_handshake_failed_exceptions: List[TlsHandshakeFailed] = []
         custom_ca_file = None
         for completed_job in scan_job_results:
             try:
                 received_chain_as_pem, ocsp_response, custom_ca_file = completed_job.get_result()
-            except TlsHandshakeFailed:
+            except TlsHandshakeFailed as exc:
                 # Can happen when trying to connect with specific cipher suites (such as RSA or non-RSA)
+                # or when connectivity is bad
+                all_handshake_failed_exceptions.append(exc)
                 continue
 
             if not received_chain_as_pem:
                 raise ValueError("Should never happen")
 
             all_configured_certificate_chains[received_chain_as_pem[0]] = received_chain_as_pem, ocsp_response
+
+        if len(all_handshake_failed_exceptions) == cls._EXPECTED_SCAN_JOB_RESULTS_COUNT:
+            # All TLS handshakes failed: bad connectivity to the server
+            # Re-raise one of the handshake exceptions
+            raise all_handshake_failed_exceptions[0]
 
         if not all_configured_certificate_chains:
             raise ValueError("Should never happen")

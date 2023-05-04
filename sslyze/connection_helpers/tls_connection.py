@@ -6,9 +6,8 @@ from nassl.legacy_ssl_client import LegacySslClient
 
 from sslyze.server_setting import (
     ServerNetworkLocation,
-    ServerNetworkLocationViaDirectConnection,
-    ServerNetworkLocationViaHttpProxy,
     ServerNetworkConfiguration,
+    ConnectionTypeEnum,
 )
 from sslyze.errors import (
     ConnectionToServerTimedOut,
@@ -36,9 +35,8 @@ if TYPE_CHECKING:
     from sslyze.server_connectivity import TlsVersionEnum
 
 
-def _open_socket_for_direct_connection(
-    server_location: ServerNetworkLocationViaDirectConnection, network_timeout: int
-) -> socket.socket:
+def _open_socket_for_direct_connection(server_location: ServerNetworkLocation, network_timeout: int) -> socket.socket:
+    assert server_location.ip_address
     # Exceptions get caught/processed by the caller
     return socket.create_connection((server_location.ip_address, server_location.port), timeout=network_timeout)
 
@@ -56,8 +54,9 @@ class _ConnectionToHttpProxyFailed(Exception):
 
 
 def _open_socket_for_connection_via_http_proxy(
-    server_location: ServerNetworkLocationViaHttpProxy, network_timeout: int
+    server_location: ServerNetworkLocation, network_timeout: int
 ) -> socket.socket:
+    assert server_location.http_proxy_settings
     try:
         sock = socket.create_connection(
             (server_location.http_proxy_settings.hostname, server_location.http_proxy_settings.port),
@@ -91,9 +90,9 @@ def _open_socket_for_connection_via_http_proxy(
 
 
 def _open_socket(server_location: ServerNetworkLocation, network_timeout: int) -> socket.socket:
-    if isinstance(server_location, ServerNetworkLocationViaHttpProxy):
+    if server_location.connection_type == ConnectionTypeEnum.VIA_HTTP_PROXY:
         return _open_socket_for_connection_via_http_proxy(server_location, network_timeout)
-    elif isinstance(server_location, ServerNetworkLocationViaDirectConnection):
+    elif server_location.connection_type == ConnectionTypeEnum.DIRECT:
         return _open_socket_for_direct_connection(server_location, network_timeout)
     else:
         raise ValueError()
@@ -110,14 +109,19 @@ _HANDSHAKE_REJECTED_TLS_ERRORS = {
     "insufficient security": "TLS error: insufficient security",
     "block type is not 01": "TLS error: block type is not 01",  # Actually an RSA error
     "wrong ssl version": "TLS error: wrong SSL version",
+    "digest check failed": "TLS error: digest check failed",
     "sslv3 alert handshake failure": "TLS alert: handshake failure",
     "tlsv1 alert protocol version": "TLS alert: protocol version ",
     "tlsv1 alert decrypt error": "TLS alert: Decrypt error",
     "tlsv1 alert decode error": "TLS alert: Decode error",
     "Connection was shut down by peer": "Server closed the connection during the TLS handshake",
-    "alert bad record mac": "TLS alert: bad record mac",
+    # https://github.com/nabla-c0d3/sslyze/issues/562
+    "bad record mac": "TLS alert: bad record mac",
     "tlsv1 alert internal error": "TLS alert: Internal error",
     "illegal padding": "TLS alert: Illegal padding",
+    # illegal parameter is sometimes used by server to reject an invalid client certificate
+    # https://github.com/nabla-c0d3/sslyze/issues/555
+    "illegal parameter": "TLS alert: Illegal parameter",
     # Error returned by OpenSSL when the server didn't return a certificate that can work with the cipher suites
     # enabled in the client; for example client only supports EC cipher suites but server returned an RSA certificate
     "wrong certificate type": "Server returned wrong certificate type",
@@ -125,8 +129,7 @@ _HANDSHAKE_REJECTED_TLS_ERRORS = {
 
 
 class NoCiphersAvailableBugInSSlyze(Exception):
-    """Should never happen.
-    """
+    """Should never happen."""
 
 
 class SslConnection:

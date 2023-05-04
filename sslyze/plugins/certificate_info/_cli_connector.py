@@ -10,23 +10,20 @@ from cryptography.x509 import Certificate
 from cryptography.x509.ocsp import OCSPResponseStatus
 
 from sslyze.plugins.certificate_info._cert_chain_analyzer import CertificateDeploymentAnalysisResult
-from sslyze.plugins.certificate_info._certificate_utils import get_common_names, extract_dns_subject_alternative_names
-from sslyze.plugins.certificate_info._json_output import (
-    oid_to_json,
-    x509_name_to_json,
-    x509_certificate_to_json,
-    ocsp_response_to_json,
+from sslyze.plugins.certificate_info._certificate_utils import (
+    get_common_names,
+    parse_subject_alternative_name_extension,
 )
+
 from sslyze.plugins.plugin_base import ScanCommandCliConnector, OptParseCliOption
 
 if TYPE_CHECKING:
     from sslyze.plugins.certificate_info.implementation import CertificateInfoScanResult
-    from sslyze.plugins.certificate_info.implementation import CertificateInfoExtraArguments  # noqa: F401
-    from sslyze.json import JsonSerializerFunction  # noqa: F401
+    from sslyze.plugins.certificate_info.implementation import CertificateInfoExtraArgument  # noqa: F401
 
 
 class _CertificateInfoCliConnector(
-    ScanCommandCliConnector["CertificateInfoScanResult", "CertificateInfoExtraArguments"]
+    ScanCommandCliConnector["CertificateInfoScanResult", "CertificateInfoExtraArgument"]
 ):
 
     _cli_option = "certinfo"
@@ -38,8 +35,8 @@ class _CertificateInfoCliConnector(
         scan_command_option.append(
             OptParseCliOption(
                 option="certinfo_ca_file",
-                help="Path to a file containing root certificates in PEM format that will be used to verify the"
-                " validity of the server's certificate.",
+                help="To be used with --certinfo. Path to a file containing root certificates in PEM format that will"
+                " be used to verify the validity of the server's certificate.",
                 action="store",
             )
         )
@@ -48,9 +45,9 @@ class _CertificateInfoCliConnector(
     @classmethod
     def find_cli_options_in_command_line(
         cls, parsed_command_line: Dict[str, Union[None, bool, str]]
-    ) -> Tuple[bool, Optional["CertificateInfoExtraArguments"]]:
+    ) -> Tuple[bool, Optional["CertificateInfoExtraArgument"]]:
         # Avoid circular imports
-        from sslyze.plugins.certificate_info.implementation import CertificateInfoExtraArguments  # noqa: F811
+        from sslyze.plugins.certificate_info.implementation import CertificateInfoExtraArgument  # noqa: F811
 
         # Check if --certinfo was used
         is_scan_cmd_enabled, _ = super().find_cli_options_in_command_line(parsed_command_line)
@@ -62,15 +59,11 @@ class _CertificateInfoCliConnector(
             if certinfo_ca_file:
                 if not isinstance(certinfo_ca_file, str):
                     raise TypeError(f"Expected a str for certinfo_ca_file but received {certinfo_ca_file}")
-                extra_arguments = CertificateInfoExtraArguments(custom_ca_file=Path(certinfo_ca_file))
+                extra_arguments = CertificateInfoExtraArgument(custom_ca_file=Path(certinfo_ca_file))
         except KeyError:
             pass
 
         return is_scan_cmd_enabled, extra_arguments
-
-    @classmethod
-    def get_json_serializer_functions(cls) -> List["JsonSerializerFunction"]:
-        return [oid_to_json, x509_name_to_json, x509_certificate_to_json, ocsp_response_to_json]
 
     TRUST_FORMAT = "{store_name} CA Store ({store_version}):"
     NO_VERIFIED_CHAIN_ERROR_TXT = "ERROR - Could not build verified chain (certificate untrusted?)"
@@ -305,15 +298,12 @@ class _CertificateInfoCliConnector(
             # DSA Key? https://github.com/nabla-c0d3/sslyze/issues/314
             pass
 
-        try:
-            # Print the SAN extension if there's one
-            text_output.append(
-                cls._format_field(
-                    "DNS Subject Alternative Names:", str(extract_dns_subject_alternative_names(certificate))
-                )
-            )
-        except KeyError:
-            pass
+        # Print the SAN extension if there's one
+        subj_alt_name_ext = parse_subject_alternative_name_extension(certificate)
+        if subj_alt_name_ext.dns_names:
+            text_output.append(cls._format_field("SubjAltName - DNS Names:", str(subj_alt_name_ext.dns_names)))
+        if subj_alt_name_ext.ip_addresses:
+            text_output.append(cls._format_field("SubjAltName - IP Addresses", str(subj_alt_name_ext.ip_addresses)))
 
         return text_output
 
@@ -337,8 +327,7 @@ def _get_issuer_as_short_text(certificate: Certificate) -> str:
 
 
 def _get_name_as_short_text(name_field: x509.Name) -> str:
-    """Convert a name field returned by the cryptography module to a string suitable for displaying it to the user.
-    """
+    """Convert a name field returned by the cryptography module to a string suitable for displaying it to the user."""
     # Name_field is supposed to be a Subject or an Issuer; print the CN if there is one
     common_names = get_common_names(name_field)
     if common_names:

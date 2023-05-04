@@ -5,10 +5,12 @@ from typing import List, Optional
 
 from nassl._nassl import WantReadError
 
+from sslyze.json.pydantic_utils import BaseModelWithOrmModeAndForbid
+from sslyze.json.scan_attempt_json import ScanCommandAttemptAsJson
 from sslyze.plugins.plugin_base import (
     ScanCommandResult,
     ScanCommandImplementation,
-    ScanCommandExtraArguments,
+    ScanCommandExtraArgument,
     ScanJob,
     ScanCommandWrongUsageError,
     ScanCommandCliConnector,
@@ -36,6 +38,14 @@ class OpenSslCcsInjectionScanResult(ScanCommandResult):
     is_vulnerable_to_ccs_injection: bool
 
 
+class OpenSslCcsInjectionScanResultAsJson(BaseModelWithOrmModeAndForbid):
+    is_vulnerable_to_ccs_injection: bool
+
+
+class OpenSslCcsInjectionScanAttemptAsJson(ScanCommandAttemptAsJson):
+    result: Optional[OpenSslCcsInjectionScanResultAsJson]  # type: ignore
+
+
 class _OpenSslCcsInjectionCliConnector(ScanCommandCliConnector[OpenSslCcsInjectionScanResult, None]):
 
     _cli_option = "openssl_ccs"
@@ -54,14 +64,13 @@ class _OpenSslCcsInjectionCliConnector(ScanCommandCliConnector[OpenSslCcsInjecti
 
 
 class OpenSslCcsInjectionImplementation(ScanCommandImplementation[OpenSslCcsInjectionScanResult, None]):
-    """Test a server for the OpenSSL CCS Injection vulnerability (CVE-2014-0224).
-    """
+    """Test a server for the OpenSSL CCS Injection vulnerability (CVE-2014-0224)."""
 
     cli_connector_cls = _OpenSslCcsInjectionCliConnector
 
     @classmethod
     def scan_jobs_for_scan_command(
-        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArguments] = None
+        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArgument] = None
     ) -> List[ScanJob]:
         if extra_arguments:
             raise ScanCommandWrongUsageError("This plugin does not take extra arguments")
@@ -110,18 +119,15 @@ def _test_for_ccs_injection(server_info: ServerConnectivityInfo) -> bool:
 
 
 class _VulnerableToCcsInjection(Exception):
-    """Exception to raise during the handshake to hijack the flow and test for CCS.
-    """
+    """Exception to raise during the handshake to hijack the flow and test for CCS."""
 
 
 class _NotVulnerableToCcsInjection(Exception):
-    """Exception to raise during the handshake to hijack the flow and test for CCS.
-    """
+    """Exception to raise during the handshake to hijack the flow and test for CCS."""
 
 
 def _do_handshake_with_ccs_injection(self):  # type: ignore
-    """Modified do_handshake() to send a CCS injection payload and return the result.
-    """
+    """Modified do_handshake() to send a CCS injection payload and return the result."""
     try:
         # Start the handshake using nassl - will throw WantReadError right away
         self._ssl.do_handshake()
@@ -154,9 +160,14 @@ def _do_handshake_with_ccs_injection(self):  # type: ignore
                 raise
         except NotEnoughData:
             # Try to get more data
-            raw_ssl_bytes = self._sock.recv(16381)
+            try:
+                raw_ssl_bytes = self._sock.recv(16381)
+            except ConnectionError:
+                # No more data?
+                break
+
             if not raw_ssl_bytes:
-                # No data?
+                # No more data?
                 break
 
             remaining_bytes = remaining_bytes + raw_ssl_bytes

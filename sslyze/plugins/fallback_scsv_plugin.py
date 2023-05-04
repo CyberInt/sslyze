@@ -1,11 +1,15 @@
 from dataclasses import dataclass
 from typing import List, Optional
+
 from nassl import _nassl
 from nassl.legacy_ssl_client import LegacySslClient
+
+from sslyze.json.pydantic_utils import BaseModelWithOrmModeAndForbid
+from sslyze.json.scan_attempt_json import ScanCommandAttemptAsJson
 from sslyze.plugins.plugin_base import (
     ScanCommandResult,
     ScanCommandImplementation,
-    ScanCommandExtraArguments,
+    ScanCommandExtraArgument,
     ScanJob,
     ScanCommandWrongUsageError,
     ScanCommandCliConnector,
@@ -26,6 +30,14 @@ class FallbackScsvScanResult(ScanCommandResult):
     supports_fallback_scsv: bool
 
 
+class FallbackScsvScanResultAsJson(BaseModelWithOrmModeAndForbid):
+    supports_fallback_scsv: bool
+
+
+class FallbackScsvScanAttemptAsJson(ScanCommandAttemptAsJson):
+    result: Optional[FallbackScsvScanResultAsJson]  # type: ignore
+
+
 class _FallbackScsvCliConnector(ScanCommandCliConnector[FallbackScsvScanResult, None]):
 
     _cli_option = "fallback"
@@ -42,14 +54,13 @@ class _FallbackScsvCliConnector(ScanCommandCliConnector[FallbackScsvScanResult, 
 
 
 class FallbackScsvImplementation(ScanCommandImplementation[FallbackScsvScanResult, None]):
-    """Test a server for the TLS_FALLBACK_SCSV mechanism to prevent downgrade attacks.
-    """
+    """Test a server for the TLS_FALLBACK_SCSV mechanism to prevent downgrade attacks."""
 
     cli_connector_cls = _FallbackScsvCliConnector
 
     @classmethod
     def scan_jobs_for_scan_command(
-        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArguments] = None
+        cls, server_info: ServerConnectivityInfo, extra_arguments: Optional[ScanCommandExtraArgument] = None
     ) -> List[ScanJob]:
         if extra_arguments:
             raise ScanCommandWrongUsageError("This plugin does not take extra arguments")
