@@ -62,7 +62,7 @@ class Scanner:
     def _has_started_work(self) -> bool:
         return self._connectivity_tester.has_started_work
 
-    def get_results(self) -> Generator[ServerScanResult, None, None]:
+    def get_results(self, timeout: float | None = None) -> Generator[ServerScanResult, None, None]:
         if not self._has_started_work:
             raise ValueError("No scan requests have been submitted")
 
@@ -119,7 +119,7 @@ class Scanner:
 
         # Wait for all scans to finish
         while True:
-            server_scan_result = server_scan_results_queue.get(block=True)
+            server_scan_result = server_scan_results_queue.get(block=True, timeout=timeout)
             server_scan_results_queue.task_done()
             if isinstance(server_scan_result, NoMoreServerScanRequestsSentinel):
                 # All scans have been completed
