@@ -1,6 +1,7 @@
 import queue
+import time
 from traceback import TracebackException
-from typing import List, Optional, Generator, Tuple, Sequence
+from typing import Any, List, Optional, Generator, Tuple, Sequence
 
 from sslyze import ServerTlsProbingResult
 from sslyze.errors import ConnectionToServerFailed
@@ -118,23 +119,51 @@ class Scanner:
         server_scan_requests_queue.put(NoMoreServerScanRequestsSentinel())  # type: ignore
 
         # Wait for all scans to finish
-        while True:
-            server_scan_result = server_scan_results_queue.get(block=True, timeout=timeout)
-            server_scan_results_queue.task_done()
-            if isinstance(server_scan_result, NoMoreServerScanRequestsSentinel):
-                # All scans have been completed
-                break
+        if timeout:
+            yield from self.get_results_with_timeout(server_scan_results_queue=server_scan_results_queue, time_limit=timeout)
+            mass_scanner_thread.join(timeout=1)
+        else:
+            while True:
+                server_scan_result = server_scan_results_queue.get(block=True)
+                server_scan_results_queue.task_done()
+                if isinstance(server_scan_result, NoMoreServerScanRequestsSentinel):
+                    # All scans have been completed
+                    break
 
-            # Notify observers and yield the completed scan
-            for observer in self._observers:
-                observer.server_scan_completed(server_scan_result)
+                # Notify observers and yield the completed scan
+                for observer in self._observers:
+                    observer.server_scan_completed(server_scan_result)
 
-            yield server_scan_result
+                yield server_scan_result
 
-        # All done with the scans
-        server_scan_requests_queue.join()
-        server_scan_results_queue.join()
-        mass_scanner_thread.join()
+            # All done with the scans
+            server_scan_requests_queue.join()
+            server_scan_results_queue.join()
+            mass_scanner_thread.join()
 
         for observer in self._observers:
             observer.all_server_scans_completed()
+
+
+    def get_results_with_timeout(
+        self,
+        server_scan_results_queue: "queue.Queue[Tuple[ServerScanRequest, ServerTlsProbingResult]]",
+        time_limit: float,
+    ):
+        start = time.time()
+        while (time.time() - start) < time_limit:
+            try:
+                server_scan_result = server_scan_results_queue.get(block=True, timeout=1)
+                server_scan_results_queue.task_done()
+                if isinstance(server_scan_result, NoMoreServerScanRequestsSentinel):
+                    # All scans have been completed
+                    return
+
+                # Notify observers and yield the completed scan
+                for observer in self._observers:
+                    observer.server_scan_completed(server_scan_result)
+
+                yield server_scan_result
+            except queue.Empty:
+                pass
+        raise queue.Empty
