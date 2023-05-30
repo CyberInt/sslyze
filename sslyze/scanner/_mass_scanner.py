@@ -63,10 +63,12 @@ class MassScannerProducerThread(threading.Thread):
         per_server_concurrent_connections_count: int,
         server_scan_requests_queue_in: "queue.Queue[Tuple[ServerScanRequest, ServerTlsProbingResult]]",
         server_scan_results_queue_out: "queue.Queue[ServerScanResult]",
+        stop_event: threading.Event,
     ):
         super().__init__()
         self._server_scan_results_queue_out = server_scan_results_queue_out
         self._server_scan_requests_queue_in = server_scan_requests_queue_in
+        self._stop_event = stop_event
         self.daemon = True  # Shutdown the thread if the program is exiting early (ie. ctrl+c)
 
         # Create internal threads and queues for dispatching jobs
@@ -150,10 +152,18 @@ class MassScannerProducerThread(threading.Thread):
                     )
                     all_ongoing_server_scans[server_scan_request.uuid] = next_queued_server_scan
                     self._server_scan_requests_queue_in.task_done()
+            
+            if self._stop_event.is_set():
+                # prevent scan
+                break
 
         # If we get here there are no more ongoing server scans; we are all done
         # Shutdown the worker queue and threads
-        self._completed_jobs_queue.join()
+        
+        # prevent stuck queue.join() because we didn't marked task done
+        if not self._stop_event.is_set():
+            self._completed_jobs_queue.join()
+
         for worker_queue in self._all_worker_queues:
             for _ in range(self._worker_threads_per_queues_count):
                 worker_queue.put(WorkerThreadNoMoreJobsSentinel())  # type: ignore
@@ -162,8 +172,11 @@ class MassScannerProducerThread(threading.Thread):
         for worker_thread in self._all_worker_threads:
             worker_thread.join()
 
-        self._server_scan_results_queue_out.put(NoMoreServerScanRequestsSentinel())  # type: ignore
-        self._server_scan_results_queue_out.join()
+        # prevent stuck queue.join() because scanner thread can exit with error 
+        # and do not consume NoMoreServerScanRequestsSentinel
+        if not self._stop_event.is_set():
+            self._server_scan_results_queue_out.put(NoMoreServerScanRequestsSentinel())  # type: ignore
+            self._server_scan_results_queue_out.join()
 
 
 def _queue_server_scan(
