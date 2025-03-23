@@ -382,6 +382,7 @@ def _detect_client_auth_requirement_with_tls_1_3(
             network_configuration=network_config,
             error_message=f'Unexpected connection error: "{e.args}"',
         )
+        
 
     finally:
         ssl_connection_auth.close()
