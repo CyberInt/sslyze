@@ -17,7 +17,7 @@ else:
 
     # Create fake Executable that does nothing so the setup.py file can be used on Linux
     class Executable:  # type: ignore
-        def __init__(self, script, targetName):  # type: ignore
+        def __init__(self, script, target_name):  # type: ignore
             pass
 
 
@@ -46,7 +46,7 @@ def get_include_files() -> List[Tuple[str, str]]:
             non_python_files.append((file, path.join("pem_files", filename)))
 
     # The Mozilla profile
-    mozilla_profile_path = root_path / "sslyze" / "mozilla_tls_profile" / "5.6.json"
+    mozilla_profile_path = root_path / "sslyze" / "mozilla_tls_profile" / "5.7.json"
     non_python_files.append((str(mozilla_profile_path), mozilla_profile_path.name))
     return non_python_files
 
@@ -62,7 +62,7 @@ setup(
     author=project_info["__author__"],
     author_email=project_info["__author_email__"],
     license=project_info["__license__"],
-    python_requires=">=3.7",
+    python_requires=">=3.9",
     # Pypi metadata
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
@@ -72,11 +72,11 @@ setup(
         "Intended Audience :: System Administrators",
         "Natural Language :: French",
         "License :: OSI Approved :: GNU Affero General Public License v3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: System :: Networking",
         "Topic :: System :: Monitoring",
         "Topic :: System :: Networking :: Monitoring",
@@ -93,18 +93,17 @@ setup(
     package_data={
         "sslyze": ["py.typed"],
         "sslyze.plugins.certificate_info.trust_stores": ["pem_files/*.pem", "pem_files/*.yaml"],
-        "sslyze.mozilla_tls_profile": ["5.6.json"],
+        "sslyze.mozilla_tls_profile": ["5.7.json"],
     },
     entry_points={"console_scripts": ["sslyze = sslyze.__main__:main"]},
     # Dependencies
     install_requires=[
-        "nassl>=5,<6",
-        "cryptography>=2.6,<40",
+        "nassl>=5.3,<6",
+        "cryptography>=43,<45",
         "tls-parser>=2,<3",
-        "pydantic>=1.7,<1.11",
-        "pyOpenSSL>=23,<24",
+        "pydantic>=2.3,<3",
     ],
     # cx_freeze info for Windows builds with Python embedded
     options={"build_exe": {"packages": ["cffi", "cryptography"], "include_files": get_include_files()}},
-    executables=[Executable(path.join("sslyze", "__main__.py"), targetName="sslyze.exe")],
+    executables=[Executable(path.join("sslyze", "__main__.py"), target_name="sslyze.exe")],
 )

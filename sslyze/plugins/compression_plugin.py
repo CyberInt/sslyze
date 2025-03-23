@@ -36,11 +36,10 @@ class CompressionScanResultAsJson(BaseModelWithOrmModeAndForbid):
 
 
 class CompressionScanAttemptAsJson(ScanCommandAttemptAsJson):
-    result: Optional[CompressionScanResultAsJson]  # type: ignore
+    result: Optional[CompressionScanResultAsJson]
 
 
 class _CompressionCliConnector(ScanCommandCliConnector[CompressionScanResult, None]):
-
     _cli_option = "compression"
     _cli_description = "Test a server for TLS compression support, which can be leveraged to perform a CRIME attack."
 

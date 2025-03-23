@@ -16,7 +16,7 @@ from sslyze.errors import (
 from tests.markers import can_only_run_on_linux_64
 
 
-def _is_ipv6_available() -> bool:
+def is_ipv6_available() -> bool:
     has_ipv6 = False
     s = socket.socket(socket.AF_INET6)
     try:
@@ -47,8 +47,8 @@ class TestServerConnectivityTester:
         assert tls_probing_result.supports_ecdh_key_exchange
 
         # And the result can be converted to JSON
-        tls_probing_result_as_json = _ServerTlsProbingResultAsJson.from_orm(tls_probing_result)
-        assert tls_probing_result_as_json.json()
+        tls_probing_result_as_json = _ServerTlsProbingResultAsJson.model_validate(tls_probing_result)
+        assert tls_probing_result_as_json.model_dump_json()
 
     def test_via_direct_connection_but_server_timed_out(self):
         # Given a server location for a server that's offline
@@ -103,7 +103,7 @@ class TestServerConnectivityTester:
         # And it detected that only TLS 1.0 is supported
         assert tls_probing_result.highest_tls_version_supported == TlsVersionEnum.TLS_1_0
 
-    @pytest.mark.skipif(not _is_ipv6_available(), reason="IPv6 not available")
+    @pytest.mark.skipif(not is_ipv6_available(), reason="IPv6 not available")
     def test_ipv6(self):
         # Given a server accessible via IPv6
         server_location = ServerNetworkLocation(
@@ -139,8 +139,8 @@ class TestServerConnectivityTester:
         assert tls_probing_result.cipher_suite_supported
 
         # And the result can be converted to JSON
-        tls_probing_result_as_json = _ServerTlsProbingResultAsJson.from_orm(tls_probing_result)
-        assert tls_probing_result_as_json.json()
+        tls_probing_result_as_json = _ServerTlsProbingResultAsJson.model_validate(tls_probing_result)
+        assert tls_probing_result_as_json.model_dump_json()
 
     @can_only_run_on_linux_64
     def test_server_triggers_unexpected_connection_error(self):
@@ -158,11 +158,25 @@ class TestServerConnectivityTester:
             )
 
             # When testing connectivity against it
-            # It fails and return the generic "connection failed" error, instead of crashing
-            with pytest.raises(ConnectionToServerFailed) as e:
+            # It fails and the actual error / root cause is mentioned in the message
+            with pytest.raises(ConnectionToServerFailed, match="unrecognized name"):
                 check_connectivity_to_server(
                     server_location=server_location,
                     network_configuration=ServerNetworkConfiguration.default_for_server_location(server_location),
                 )
-                # And the actual error / root cause is mentioned in the message
-                assert "unrecognized name" in e.error_message
+
+    @can_only_run_on_linux_64
+    def test_server_only_supports_sslv2(self):
+        # Given a TLS server that only supports SSLv2
+        with LegacyOpenSslServer(openssl_cipher_string="SSLv2") as server:
+            server_location = ServerNetworkLocation(
+                hostname=server.hostname, ip_address=server.ip_address, port=server.port
+            )
+
+            # When testing connectivity against it
+            # It fails and the fact that the server only supports SSL 2.0 is mentioned in the error
+            with pytest.raises(ConnectionToServerFailed, match="SSL 2.0"):
+                check_connectivity_to_server(
+                    server_location=server_location,
+                    network_configuration=ServerNetworkConfiguration.default_for_server_location(server_location),
+                )

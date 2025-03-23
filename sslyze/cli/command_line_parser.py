@@ -32,7 +32,6 @@ from sslyze.server_setting import (
 
 
 class CommandLineParsingError(Exception):
-
     PARSING_ERROR_FORMAT = "  Command line error: {0}\n  Use -h for help."
 
     def get_error_msg(self) -> str:
@@ -398,7 +397,7 @@ class CommandLineParser:
         )
 
         # Connectivity option group
-        connectivity_group = self._parser.add_argument_group("Contectivity options")
+        connectivity_group = self._parser.add_argument_group("Connectivity options")
         # Connection speed
         connectivity_group.add_argument(
             "--slow_connection",

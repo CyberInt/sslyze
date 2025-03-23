@@ -3,6 +3,8 @@ from nassl.ssl_client import ClientCertificateRequested
 from sslyze.plugins.session_renegotiation_plugin import (
     SessionRenegotiationImplementation,
     SessionRenegotiationScanResult,
+    SessionRenegotiationScanResultAsJson,
+    SessionRenegotiationExtraArgument,
 )
 
 from sslyze.server_setting import (
@@ -17,7 +19,7 @@ import pytest
 
 
 class TestSessionRenegotiationPlugin:
-    def test_renegotiation_good(self):
+    def test_renegotiation_good(self) -> None:
         # Given a server that is NOT vulnerable to insecure reneg nor client reneg DOS
         server_location = ServerNetworkLocation("www.google.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -32,26 +34,39 @@ class TestSessionRenegotiationPlugin:
         # And a CLI output can be generated
         assert SessionRenegotiationImplementation.cli_connector_cls.result_to_console_output(result)
 
+        # And the result can be converted to JSON
+        result_as_json = SessionRenegotiationScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
     @can_only_run_on_linux_64
-    def test_renegotiation_is_vulnerable_to_client_renegotiation_dos(self):
+    def test_renegotiation_is_vulnerable_to_client_renegotiation_dos(self) -> None:
         # Given a server that is vulnerable to client renegotiation DOS
+        expected_renegotiations_success_count = 3
+
         with LegacyOpenSslServer() as server:
             server_location = ServerNetworkLocation(
                 hostname=server.hostname, ip_address=server.ip_address, port=server.port
             )
+            extra_arg = SessionRenegotiationExtraArgument(
+                client_renegotiation_attempts=expected_renegotiations_success_count
+            )
             server_info = check_connectivity_to_server_and_return_info(server_location)
 
             # When testing for insecure reneg, it succeeds
-            result: SessionRenegotiationScanResult = SessionRenegotiationImplementation.scan_server(server_info)
+            result: SessionRenegotiationScanResult = SessionRenegotiationImplementation.scan_server(
+                server_info,
+                extra_arguments=extra_arg,
+            )
 
         # And the server is reported as vulnerable
         assert result.is_vulnerable_to_client_renegotiation_dos
+        assert result.client_renegotiations_success_count == expected_renegotiations_success_count
 
         # And a CLI output can be generated
         assert SessionRenegotiationImplementation.cli_connector_cls.result_to_console_output(result)
 
     @can_only_run_on_linux_64
-    def test_fails_when_client_auth_failed(self):
+    def test_fails_when_client_auth_failed(self) -> None:
         # Given a server that requires client authentication
         with LegacyOpenSslServer(client_auth_config=ClientAuthConfigEnum.REQUIRED) as server:
             # And sslyze does NOT provide a client certificate
@@ -65,7 +80,7 @@ class TestSessionRenegotiationPlugin:
                 SessionRenegotiationImplementation.scan_server(server_info)
 
     @can_only_run_on_linux_64
-    def test_works_when_client_auth_succeeded(self):
+    def test_works_when_client_auth_succeeded(self) -> None:
         # Given a server that is vulnerable and that requires client authentication
         with LegacyOpenSslServer(client_auth_config=ClientAuthConfigEnum.REQUIRED) as server:
             server_location = ServerNetworkLocation(
