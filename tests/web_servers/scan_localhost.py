@@ -7,8 +7,9 @@ See ./.github/workflows and https://github.com/nabla-c0d3/sslyze/issues/472 for 
 
 $ PYTHONPATH=. python tests/web_servers/scan_localhost.py apache2
 """
+
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from sslyze import (
@@ -35,13 +36,12 @@ class WebServerSoftwareEnum(str, Enum):
 def main(server_software_running_on_localhost: WebServerSoftwareEnum) -> None:
     # Queue all scan commands against a server running on localhost
     print("Starting scan.")
-    date_scans_started = datetime.utcnow()
+    date_scans_started = datetime.now(timezone.utc)
     scanner = Scanner()
     scanner.queue_scans([ServerScanRequest(server_location=ServerNetworkLocation("localhost", 443))])
 
     # Retrieve the result
     for server_scan_result in scanner.get_results():
-
         # First validate the connectivity testing
         assert server_scan_result.connectivity_status == ServerConnectivityStatusEnum.COMPLETED
         assert server_scan_result.connectivity_result
@@ -164,6 +164,7 @@ def main(server_software_running_on_localhost: WebServerSoftwareEnum) -> None:
 
         for ciphers_scan_cmd in expected_enabled_tls_scan_commands:
             scan_cmd_attempt = getattr(server_scan_result.scan_result, ciphers_scan_cmd, None)
+            assert scan_cmd_attempt
             scan_cmd_result = scan_cmd_attempt.result
             if not scan_cmd_result.accepted_cipher_suites:
                 raise RuntimeError(
@@ -174,11 +175,12 @@ def main(server_software_running_on_localhost: WebServerSoftwareEnum) -> None:
 
         # Ensure a JSON output can be generated from the results
         final_json_output = SslyzeOutputAsJson(
-            server_scan_results=[ServerScanResultAsJson.from_orm(server_scan_result)],
+            server_scan_results=[ServerScanResultAsJson.model_validate(server_scan_result)],
             date_scans_started=date_scans_started,
-            date_scans_completed=datetime.utcnow(),
+            date_scans_completed=datetime.now(timezone.utc),
+            invalid_server_strings=[],
         )
-        final_json_output.json(sort_keys=True, indent=4, ensure_ascii=True)
+        final_json_output.model_dump_json()
         print("OK: Was able to generate JSON output.")
 
 

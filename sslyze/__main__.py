@@ -1,5 +1,5 @@
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, TextIO
 
 from sslyze.cli.console_output import ObserverToGenerateConsoleOutput
@@ -11,6 +11,7 @@ from sslyze import (
     ServerScanRequest,
     SslyzeOutputAsJson,
     ServerScanResultAsJson,
+    ServerConnectivityStatusEnum,
 )
 from sslyze.json.json_output import InvalidServerStringAsJson
 from sslyze.mozilla_tls_profile.mozilla_config_checker import (
@@ -22,7 +23,7 @@ from sslyze.mozilla_tls_profile.mozilla_config_checker import (
 
 def main() -> None:
     # Parse the supplied command line
-    date_scans_started = datetime.utcnow()
+    date_scans_started = datetime.now(timezone.utc)
     sslyze_parser = CommandLineParser(__version__)
     try:
         parsed_command_line = sslyze_parser.parse_command_line()
@@ -75,21 +76,22 @@ def main() -> None:
 
     if json_file_out:
         json_output = SslyzeOutputAsJson(
-            server_scan_results=[ServerScanResultAsJson.from_orm(result) for result in all_server_scan_results],
+            server_scan_results=[ServerScanResultAsJson.model_validate(result) for result in all_server_scan_results],
             invalid_server_strings=[
-                InvalidServerStringAsJson.from_orm(bad_server) for bad_server in parsed_command_line.invalid_servers
+                InvalidServerStringAsJson.model_validate(bad_server)
+                for bad_server in parsed_command_line.invalid_servers
             ],
             date_scans_started=date_scans_started,
-            date_scans_completed=datetime.utcnow(),
+            date_scans_completed=datetime.now(timezone.utc),
         )
-        json_output_as_str = json_output.json(sort_keys=True, indent=4, ensure_ascii=True)
+        json_output_as_str = json_output.model_dump_json(indent=2)
         json_file_out.write(json_output_as_str)
 
     # If we printed the JSON results to the console, don't run the Mozilla compliance check so we return valid JSON
     if parsed_command_line.should_print_json_to_console:
         sys.exit(0)
 
-    if not all_server_scan_results:
+    if {res.connectivity_status for res in all_server_scan_results} in [set(), {ServerConnectivityStatusEnum.ERROR}]:
         # There are no results to present: all supplied server strings were invalid?
         sys.exit(0)
 
@@ -102,7 +104,6 @@ def main() -> None:
     if not parsed_command_line.check_against_mozilla_config:
         print("    Disabled; use --mozilla_config={old, intermediate, modern}.\n")
     else:
-
         print(
             f'    Checking results against Mozilla\'s "{parsed_command_line.check_against_mozilla_config}"'
             f" configuration. See https://ssl-config.mozilla.org/ for more details.\n"

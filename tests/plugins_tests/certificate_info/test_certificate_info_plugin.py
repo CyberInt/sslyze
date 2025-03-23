@@ -10,6 +10,8 @@ from tests.markers import can_only_run_on_linux_64
 from tests.openssl_server import ModernOpenSslServer, ClientAuthConfigEnum
 import pytest
 
+from tests.server_connectivity_tests.test_direct_connection import is_ipv6_available
+
 
 class TestCertificateInfoPlugin:
     def test_ca_file_bad_file(self):
@@ -41,8 +43,10 @@ class TestCertificateInfoPlugin:
         for path_validation_result in plugin_result.certificate_deployments[0].path_validation_results:
             if path_validation_result.trust_store.path == ca_file_path:
                 assert not path_validation_result.was_validation_successful
+                assert path_validation_result.validation_error
             else:
                 assert path_validation_result.was_validation_successful
+                assert not path_validation_result.validation_error
 
     def test_valid_chain_with_ocsp_stapling(self):
         # Given a server to scan that supports OCSP stapling
@@ -78,7 +82,6 @@ class TestCertificateInfoPlugin:
         for path_validation_result in plugin_result.certificate_deployments[0].path_validation_results:
             assert path_validation_result.was_validation_successful
 
-        assert plugin_result.certificate_deployments[0].leaf_certificate_subject_matches_hostname
         assert plugin_result.certificate_deployments[0].received_chain_has_valid_order
 
     def test_invalid_chain(self):
@@ -103,7 +106,6 @@ class TestCertificateInfoPlugin:
 
         assert plugin_result.certificate_deployments[0].leaf_certificate_signed_certificate_timestamps_count == 0
 
-        assert plugin_result.certificate_deployments[0].leaf_certificate_subject_matches_hostname
         assert plugin_result.certificate_deployments[0].received_chain_has_valid_order
         assert plugin_result.certificate_deployments[0].received_chain_contains_anchor_certificate is None
 
@@ -156,7 +158,6 @@ class TestCertificateInfoPlugin:
 
         # When running the scan, it succeeds
         plugin_result = CertificateInfoImplementation.scan_server(server_info)
-
         assert plugin_result.certificate_deployments[0].received_certificate_chain
 
     def test_certificate_with_no_subject(self):
@@ -190,6 +191,17 @@ class TestCertificateInfoPlugin:
 
         # And multiple certificates were detected
         assert len(plugin_result.certificate_deployments) > 1
+
+    @pytest.mark.skipif(not is_ipv6_available(), reason="IPv6 not available")
+    def test_ipv6_server_string(self):
+        # Test for https://github.com/nabla-c0d3/sslyze/issues/675
+        # Given a server to scan for which SSLyze only received an IPv6 address
+        server_location = ServerNetworkLocation("2a00:1450:4007:80d::200e", 443, ip_address="2a00:1450:4007:80d::200e")
+        server_info = check_connectivity_to_server_and_return_info(server_location)
+
+        # When running the scan, it succeeds
+        plugin_result = CertificateInfoImplementation.scan_server(server_info)
+        assert plugin_result.certificate_deployments[0].received_certificate_chain
 
     @can_only_run_on_linux_64
     def test_succeeds_when_client_auth_failed(self):

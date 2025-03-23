@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
@@ -25,7 +25,7 @@ def _print_failed_scan_command_attempt(scan_command_attempt: ScanCommandAttempt)
 
 def main() -> None:
     print("=> Starting the scans")
-    date_scans_started = datetime.utcnow()
+    date_scans_started = datetime.now(timezone.utc)
 
     # First create the scan requests for each server that we want to scan
     try:
@@ -104,7 +104,7 @@ def main() -> None:
     # Lastly, save the all the results to a JSON file
     json_file_out = Path("api_sample_results.json")
     print(f"\n\n=> Saving scan results to {json_file_out}")
-    example_json_result_output(json_file_out, all_server_scan_results, date_scans_started, datetime.utcnow())
+    example_json_result_output(json_file_out, all_server_scan_results, date_scans_started, datetime.now(timezone.utc))
 
     # And ensure we are able to parse them
     print(f"\n\n=> Parsing scan results from {json_file_out}")
@@ -118,12 +118,12 @@ def example_json_result_output(
     date_scans_completed: datetime,
 ) -> None:
     json_output = SslyzeOutputAsJson(
-        server_scan_results=[ServerScanResultAsJson.from_orm(result) for result in all_server_scan_results],
+        server_scan_results=[ServerScanResultAsJson.model_validate(result) for result in all_server_scan_results],
         invalid_server_strings=[],  # Not needed here - specific to the CLI interface
         date_scans_started=date_scans_started,
         date_scans_completed=date_scans_completed,
     )
-    json_output_as_str = json_output.json(sort_keys=True, indent=4, ensure_ascii=True)
+    json_output_as_str = json_output.model_dump_json()
     json_file_out.write_text(json_output_as_str)
 
 
@@ -132,7 +132,7 @@ def example_json_result_parsing(results_as_json_file: Path) -> None:
     results_as_json = results_as_json_file.read_text()
 
     # These results can be parsed
-    parsed_results = SslyzeOutputAsJson.parse_raw(results_as_json)
+    parsed_results = SslyzeOutputAsJson.model_validate_json(results_as_json)
 
     # Making it easy to do post-processing and inspection of the results
     print("The following servers were scanned:")

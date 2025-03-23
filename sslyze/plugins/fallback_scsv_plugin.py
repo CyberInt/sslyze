@@ -35,11 +35,10 @@ class FallbackScsvScanResultAsJson(BaseModelWithOrmModeAndForbid):
 
 
 class FallbackScsvScanAttemptAsJson(ScanCommandAttemptAsJson):
-    result: Optional[FallbackScsvScanResultAsJson]  # type: ignore
+    result: Optional[FallbackScsvScanResultAsJson]
 
 
 class _FallbackScsvCliConnector(ScanCommandCliConnector[FallbackScsvScanResult, None]):
-
     _cli_option = "fallback"
     _cli_description = "Test a server for the TLS_FALLBACK_SCSV mechanism to prevent downgrade attacks."
 

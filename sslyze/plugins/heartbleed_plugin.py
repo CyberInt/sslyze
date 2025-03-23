@@ -42,11 +42,10 @@ class HeartbleedScanResultAsJson(BaseModelWithOrmModeAndForbid):
 
 
 class HeartbleedScanAttemptAsJson(ScanCommandAttemptAsJson):
-    result: Optional[HeartbleedScanResultAsJson]  # type: ignore
+    result: Optional[HeartbleedScanResultAsJson]
 
 
 class _HeartbleedCliConnector(ScanCommandCliConnector[HeartbleedScanResult, None]):
-
     _cli_option = "heartbleed"
     _cli_description = "Test a server for the OpenSSL Heartbleed vulnerability."
 

@@ -43,11 +43,10 @@ class OpenSslCcsInjectionScanResultAsJson(BaseModelWithOrmModeAndForbid):
 
 
 class OpenSslCcsInjectionScanAttemptAsJson(ScanCommandAttemptAsJson):
-    result: Optional[OpenSslCcsInjectionScanResultAsJson]  # type: ignore
+    result: Optional[OpenSslCcsInjectionScanResultAsJson]
 
 
 class _OpenSslCcsInjectionCliConnector(ScanCommandCliConnector[OpenSslCcsInjectionScanResult, None]):
-
     _cli_option = "openssl_ccs"
     _cli_description = "Test a server for the OpenSSL CCS Injection vulnerability (CVE-2014-0224)."
 

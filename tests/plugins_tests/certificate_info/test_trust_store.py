@@ -1,7 +1,9 @@
 from datetime import datetime
+from ipaddress import ip_address
 
 from sslyze import TrustStore
 from sslyze.plugins.certificate_info.trust_stores.trust_store_repository import TrustStoresRepository
+from cryptography.x509 import DNSName, IPAddress
 
 
 GOOGLE_DOT_COM_CERT_CHAIN_ON_11_2022 = [
@@ -115,30 +117,79 @@ class TestTrustStore:
         # Given a trust store and a certificate chain to verify
         trust_store = _create_trust_store()
         certificate_chain_as_pem = GOOGLE_DOT_COM_CERT_CHAIN_ON_11_2022
+        server_subject = DNSName("www.google.com")
 
         # And at the time of the verification, the certificate chain is expected to be valid
-        trust_store._x509_store.set_time(datetime(year=2022, month=11, day=6))
+        validation_time = datetime(year=2022, month=11, day=6)
 
         # When running the verification, it succeeds
-        result = trust_store.verify_certificate_chain(certificate_chain_as_pem)
+        result = trust_store.verify_certificate_chain(certificate_chain_as_pem, server_subject, validation_time)
 
         # And the certificate chain was reported as being valid
         assert result.was_validation_successful
         assert result.verified_certificate_chain
-        assert result.openssl_error_string is None
+        assert result.validation_error is None
 
-    def test_verify_certificate_chain_but_verification_fails(self):
+    def test_verify_certificate_chain_but_path_validation_fails(self):
         # Given a trust store and a certificate chain to verify
         trust_store = _create_trust_store()
         certificate_chain_as_pem = GOOGLE_DOT_COM_CERT_CHAIN_ON_11_2022
+        server_subject = DNSName("www.google.com")
 
         # And at the time of the verification, the certificate chain is expected to be INVALID
-        trust_store._x509_store.set_time(datetime(year=2030, month=1, day=1))
+        validation_time = datetime(year=2030, month=1, day=1)
 
         # When running the verification, it succeeds
-        result = trust_store.verify_certificate_chain(certificate_chain_as_pem)
+        result = trust_store.verify_certificate_chain(certificate_chain_as_pem, server_subject, validation_time)
 
         # And the certificate chain was reported as being INVALID
         assert not result.was_validation_successful
         assert not result.verified_certificate_chain
-        assert result.openssl_error_string
+
+        # Ant the error message mentions the validation time being invalid
+        assert result.validation_error
+        assert "not valid at validation time" in result.validation_error
+
+    def test_verify_certificate_chain_but_hostname_validation_fails(self):
+        # Given a trust store and a certificate chain to verify
+        trust_store = _create_trust_store()
+        certificate_chain_as_pem = GOOGLE_DOT_COM_CERT_CHAIN_ON_11_2022
+
+        # And at the time of the verification, the certificate chain is expected to be valid
+        validation_time = datetime(year=2022, month=11, day=6)
+
+        # But the certificate is for a different hostname
+        server_subject = DNSName("notgoogle.com")
+
+        # When running the verification, it succeeds
+        result = trust_store.verify_certificate_chain(certificate_chain_as_pem, server_subject, validation_time)
+
+        # And the certificate chain was reported as being INVALID
+        assert not result.was_validation_successful
+        assert not result.verified_certificate_chain
+
+        # Ant the error message mentions that hostname validation failed
+        assert result.validation_error
+        assert "no matching subjectAltName" in result.validation_error
+
+    def test_verify_certificate_chain_but_hostname_validation_fails_with_ip(self):
+        # Given a trust store and a certificate chain to verify
+        trust_store = _create_trust_store()
+        certificate_chain_as_pem = GOOGLE_DOT_COM_CERT_CHAIN_ON_11_2022
+
+        # And at the time of the verification, the certificate chain is expected to be valid
+        validation_time = datetime(year=2022, month=11, day=6)
+
+        # But the certificate is for a different server, actually an IP address
+        server_subject = IPAddress(ip_address("2a00:1450:4007:80d::200e"))
+
+        # When running the verification, it succeeds
+        result = trust_store.verify_certificate_chain(certificate_chain_as_pem, server_subject, validation_time)
+
+        # And the certificate chain was reported as being INVALID
+        assert not result.was_validation_successful
+        assert not result.verified_certificate_chain
+
+        # Ant the error message mentions that hostname validation failed
+        assert result.validation_error
+        assert "no matching subjectAltName" in result.validation_error

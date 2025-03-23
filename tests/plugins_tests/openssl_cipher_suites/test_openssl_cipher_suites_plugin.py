@@ -13,6 +13,7 @@ from sslyze.plugins.openssl_cipher_suites.implementation import (
     Tlsv12ScanImplementation,
     Tlsv13ScanImplementation,
 )
+from sslyze.plugins.openssl_cipher_suites.json_output import CipherSuitesScanResultAsJson
 
 from sslyze.server_setting import ServerNetworkLocation, ServerNetworkConfiguration
 from tests.connectivity_utils import check_connectivity_to_server_and_return_info
@@ -24,7 +25,7 @@ from tests.openssl_server import LegacyOpenSslServer, ModernOpenSslServer, Clien
 # https://github.com/nabla-c0d3/sslyze/issues/338
 @pytest.mark.skip("Re-enable these tests when implementing cipher suite preference (#338)")
 class DisabledTestCipherSuitePreference:
-    def test_cipher_suite_preferred_by_server(self):
+    def test_cipher_suite_preferred_by_server(self) -> None:
         # Given an ordered list of cipher suites
         configured_cipher_suites = [
             "ECDHE-RSA-CHACHA20-POLY1305",
@@ -57,10 +58,11 @@ class DisabledTestCipherSuitePreference:
             result: CipherSuitesScanResult = Tlsv12ScanImplementation.scan_server(server_info)
 
         # And the server's cipher suite preference was detected
-        assert result.cipher_suite_preferred_by_server
-        assert configured_cipher_suites[0] == result.cipher_suite_preferred_by_server.cipher_suite.openssl_name
+        pref_by_server = result.cipher_suite_preferred_by_server  # type: ignore
+        assert pref_by_server
+        assert configured_cipher_suites[0] == pref_by_server.cipher_suite.openssl_name
 
-    def test_follows_client_cipher_suite_preference(self):
+    def test_follows_client_cipher_suite_preference(self) -> None:
         # Given a server to scan that follows client cipher suite preference
         server_location = ServerNetworkLocation("www.hotmail.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -69,11 +71,11 @@ class DisabledTestCipherSuitePreference:
         result: CipherSuitesScanResult = Tlsv12ScanImplementation.scan_server(server_info)
 
         # And the server is detected as following the client's preference
-        assert result.cipher_suite_preferred_by_server
+        assert result.cipher_suite_preferred_by_server  # type: ignore
 
 
 class TestCipherSuitesPluginWithOnlineServer:
-    def test_sslv2_disabled(self):
+    def test_sslv2_disabled(self) -> None:
         # Given a server to scan that does not support SSL 2.0
         server_location = ServerNetworkLocation("www.google.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -85,7 +87,14 @@ class TestCipherSuitesPluginWithOnlineServer:
         assert not result.accepted_cipher_suites
         assert result.rejected_cipher_suites
 
-    def test_sslv3_disabled(self):
+        # And a CLI output can be generated
+        assert Sslv20ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_sslv3_disabled(self) -> None:
         # Given a server to scan that does not support SSL 3.0
         server_location = ServerNetworkLocation("www.google.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -97,7 +106,14 @@ class TestCipherSuitesPluginWithOnlineServer:
         assert not result.accepted_cipher_suites
         assert result.rejected_cipher_suites
 
-    def test_tlsv1_0_enabled(self):
+        # And a CLI output can be generated
+        assert Sslv30ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_tlsv1_0_enabled(self) -> None:
         # Given a server to scan that supports TLS 1.0
         server_location = ServerNetworkLocation("www.google.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -119,7 +135,14 @@ class TestCipherSuitesPluginWithOnlineServer:
 
         assert result.rejected_cipher_suites
 
-    def test_tlsv1_0_disabled(self):
+        # And a CLI output can be generated
+        assert Tlsv10ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_tlsv1_0_disabled(self) -> None:
         # Given a server to scan that does NOT support TLS 1.0
         server_location = ServerNetworkLocation("success.trendmicro.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -131,7 +154,14 @@ class TestCipherSuitesPluginWithOnlineServer:
         assert not result.accepted_cipher_suites
         assert result.rejected_cipher_suites
 
-    def test_tlsv1_1_enabled(self):
+        # And a CLI output can be generated
+        assert Tlsv10ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_tlsv1_1_enabled(self) -> None:
         # Given a server to scan that supports TLS 1.1
         server_location = ServerNetworkLocation("www.google.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -153,7 +183,14 @@ class TestCipherSuitesPluginWithOnlineServer:
 
         assert result.rejected_cipher_suites
 
-    def test_tlsv1_2_enabled(self):
+        # And a CLI output can be generated
+        assert Tlsv11ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_tlsv1_2_enabled(self) -> None:
         # Given a server to scan that supports TLS 1.2
         server_location = ServerNetworkLocation("www.google.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -179,7 +216,14 @@ class TestCipherSuitesPluginWithOnlineServer:
             accepted_cipher.cipher_suite.name for accepted_cipher in result.accepted_cipher_suites
         }
 
-    def test_null_cipher_suites(self):
+        # And a CLI output can be generated
+        assert Tlsv12ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_null_cipher_suites(self) -> None:
         # Given a server to scan that supports NULL cipher suites
         server_location = ServerNetworkLocation("null.badssl.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -209,7 +253,14 @@ class TestCipherSuitesPluginWithOnlineServer:
             accepted_cipher.cipher_suite.name for accepted_cipher in result.accepted_cipher_suites
         }
 
-    def test_rc4_cipher_suites(self):
+        # And a CLI output can be generated
+        assert Tlsv12ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_rc4_cipher_suites(self) -> None:
         # Given a server to scan that supports RC4 cipher suites
         server_location = ServerNetworkLocation("rc4.badssl.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -222,7 +273,14 @@ class TestCipherSuitesPluginWithOnlineServer:
             accepted_cipher.cipher_suite.name for accepted_cipher in result.accepted_cipher_suites
         }
 
-    def test_ecdsa_cipher_suites(self):
+        # And a CLI output can be generated
+        assert Tlsv12ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_ecdsa_cipher_suites(self) -> None:
         # Given a server to scan that supports ECDSA cipher suites
         server_location = ServerNetworkLocation("ecc256.badssl.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -244,7 +302,14 @@ class TestCipherSuitesPluginWithOnlineServer:
             accepted_cipher.cipher_suite.name for accepted_cipher in result.accepted_cipher_suites
         }
 
-    def test_smtp(self):
+        # And a CLI output can be generated
+        assert Tlsv12ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_smtp(self) -> None:
         # Given an SMTP server to scan
         hostname = "smtp.gmail.com"
         server_location = ServerNetworkLocation(hostname, 587)
@@ -257,7 +322,14 @@ class TestCipherSuitesPluginWithOnlineServer:
         result: CipherSuitesScanResult = Tlsv12ScanImplementation.scan_server(server_info)
         assert result.accepted_cipher_suites
 
-    def test_tls_1_3_cipher_suites(self):
+        # And a CLI output can be generated
+        assert Tlsv12ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_tls_1_3_cipher_suites(self) -> None:
         # Given a server to scan that supports TLS 1.3
         server_location = ServerNetworkLocation("www.cloudflare.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -270,7 +342,14 @@ class TestCipherSuitesPluginWithOnlineServer:
             accepted_cipher.cipher_suite.name for accepted_cipher in result.accepted_cipher_suites
         }
 
-    def test_ephemeral_key_info(self):
+        # And a CLI output can be generated
+        assert Tlsv13ScanImplementation.cli_connector_cls.result_to_console_output(result)
+
+        # And the result can be converted to JSON
+        result_as_json = CipherSuitesScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
+    def test_ephemeral_key_info(self) -> None:
         # Given a server to scan that supports DH and ECDH ephemeral keys
         server_location = ServerNetworkLocation("cloudflare.com", 443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
@@ -290,7 +369,7 @@ class TestCipherSuitesPluginWithOnlineServer:
 
 @can_only_run_on_linux_64
 class TestCipherSuitesPluginWithLocalServer:
-    def test_sslv2_enabled(self):
+    def test_sslv2_enabled(self) -> None:
         # Given a server to scan that supports SSL 2.0
         with LegacyOpenSslServer(openssl_cipher_string="ALL:COMPLEMENTOFALL") as server:
             server_location = ServerNetworkLocation(
@@ -305,7 +384,7 @@ class TestCipherSuitesPluginWithLocalServer:
         assert len(result.accepted_cipher_suites) == 7
         assert not result.rejected_cipher_suites
 
-    def test_sslv3_enabled(self):
+    def test_sslv3_enabled(self) -> None:
         # Given a server to scan that supports SSL 3.0
         with LegacyOpenSslServer(openssl_cipher_string="ALL:COMPLEMENTOFALL") as server:
             server_location = ServerNetworkLocation(
@@ -320,7 +399,7 @@ class TestCipherSuitesPluginWithLocalServer:
         assert len(result.accepted_cipher_suites) == 43
         assert result.rejected_cipher_suites
 
-    def test_succeeds_when_client_auth_failed_tls_1_2(self):
+    def test_succeeds_when_client_auth_failed_tls_1_2(self) -> None:
         # Given a TLS 1.2 server that requires client authentication
         with LegacyOpenSslServer(client_auth_config=ClientAuthConfigEnum.REQUIRED) as server:
             # And SSLyze does NOT provide a client certificate
@@ -334,7 +413,7 @@ class TestCipherSuitesPluginWithLocalServer:
 
         assert result.accepted_cipher_suites
 
-    def test_succeeds_when_client_auth_failed_tls_1_3(self):
+    def test_succeeds_when_client_auth_failed_tls_1_3(self) -> None:
         # Given a TLS 1.3 server that requires client authentication
         with ModernOpenSslServer(client_auth_config=ClientAuthConfigEnum.REQUIRED) as server:
             # And SSLyze does NOT provide a client certificate

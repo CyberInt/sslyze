@@ -1,4 +1,7 @@
-from sslyze.plugins.openssl_ccs_injection_plugin import OpenSslCcsInjectionImplementation
+from sslyze.plugins.openssl_ccs_injection_plugin import (
+    OpenSslCcsInjectionImplementation,
+    OpenSslCcsInjectionScanResultAsJson,
+)
 from sslyze.server_setting import ServerNetworkLocation
 from tests.connectivity_utils import check_connectivity_to_server_and_return_info
 from tests.markers import can_only_run_on_linux_64
@@ -20,10 +23,14 @@ class TestOpenSslCcsInjectionPlugin:
         # And a CLI output can be generated
         assert OpenSslCcsInjectionImplementation.cli_connector_cls.result_to_console_output(result)
 
+        # And the result can be converted to JSON
+        result_as_json = OpenSslCcsInjectionScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
     def test_not_vulnerable_and_server_has_cloudfront_bug(self):
         # Test for https://github.com/nabla-c0d3/sslyze/issues/437
         # Given a server that is NOT vulnerable to CCS injection and that is hosted on Cloudfront with the SNI bug
-        server_location = ServerNetworkLocation(hostname="amazon.com", port=443, ip_address="13.35.126.17")
+        server_location = ServerNetworkLocation(hostname="uol.com", port=443)
         server_info = check_connectivity_to_server_and_return_info(server_location)
 
         # When testing for CCS injection, it succeeds

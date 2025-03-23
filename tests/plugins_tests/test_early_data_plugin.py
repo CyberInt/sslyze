@@ -1,4 +1,4 @@
-from sslyze.plugins.early_data_plugin import EarlyDataScanResult, EarlyDataImplementation
+from sslyze.plugins.early_data_plugin import EarlyDataScanResult, EarlyDataImplementation, EarlyDataScanResultAsJson
 from sslyze.server_setting import ServerNetworkLocation
 from tests.connectivity_utils import check_connectivity_to_server_and_return_info
 from tests.markers import can_only_run_on_linux_64
@@ -7,7 +7,7 @@ from tests.openssl_server import ModernOpenSslServer, LegacyOpenSslServer
 
 class TestEarlyDataPlugin:
     @can_only_run_on_linux_64
-    def test_early_data_enabled(self):
+    def test_early_data_enabled(self) -> None:
         # Given a server to scan that supports early data
         with ModernOpenSslServer(max_early_data=256) as server:
             server_location = ServerNetworkLocation(
@@ -24,8 +24,12 @@ class TestEarlyDataPlugin:
         # And a CLI output can be generated
         assert EarlyDataImplementation.cli_connector_cls.result_to_console_output(result)
 
+        # And the result can be converted to JSON
+        result_as_json = EarlyDataScanResultAsJson.model_validate(result).model_dump_json()
+        assert result_as_json
+
     @can_only_run_on_linux_64
-    def test_early_data_disabled_no_tls_1_3(self):
+    def test_early_data_disabled_no_tls_1_3(self) -> None:
         # Given a server to scan that does NOT support early data because it does not support TLS 1.3
         with LegacyOpenSslServer() as server:
             server_location = ServerNetworkLocation(
@@ -40,7 +44,7 @@ class TestEarlyDataPlugin:
         assert not result.supports_early_data
 
     @can_only_run_on_linux_64
-    def test_early_data_disabled(self):
+    def test_early_data_disabled(self) -> None:
         # Given a server to scan that does NOT support early data because it it is disabled
         with ModernOpenSslServer(max_early_data=None) as server:
             server_location = ServerNetworkLocation(
