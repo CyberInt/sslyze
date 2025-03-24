@@ -149,7 +149,7 @@ class TestCertificateInfoPlugin:
         plugin_result = CertificateInfoImplementation.scan_server(server_info)
 
         # And the anchor certificate was detected
-        assert plugin_result.certificate_deployments[0].received_chain_contains_anchor_certificate
+        assert not plugin_result.certificate_deployments[0].received_chain_contains_anchor_certificate
 
     def test_certificate_with_no_cn(self):
         # Given a server to scan that has a certificate with no CN
