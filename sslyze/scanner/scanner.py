@@ -41,12 +41,8 @@ class Scanner:
         if per_server_concurrent_connections_limit is None:
             final_per_server_concurrent_connections_limit = 5
         else:
-            final_per_server_concurrent_connections_limit = (
-                per_server_concurrent_connections_limit
-            )
-        self._per_server_concurrent_connections_count = (
-            final_per_server_concurrent_connections_limit
-        )
+            final_per_server_concurrent_connections_limit = per_server_concurrent_connections_limit
+        self._per_server_concurrent_connections_count = final_per_server_concurrent_connections_limit
 
         if concurrent_server_scans_limit is None:
             final_concurrent_server_scans_limit = 10
@@ -54,9 +50,7 @@ class Scanner:
             final_concurrent_server_scans_limit = concurrent_server_scans_limit
         self._concurrent_server_scans_count = final_concurrent_server_scans_limit
 
-        self._connectivity_tester = MassConnectivityTester(
-            self._concurrent_server_scans_count
-        )
+        self._connectivity_tester = MassConnectivityTester(self._concurrent_server_scans_count)
 
     def queue_scans(self, server_scan_requests: List[ServerScanRequest]) -> None:
         if self._has_started_work:
@@ -72,9 +66,7 @@ class Scanner:
     def _has_started_work(self) -> bool:
         return self._connectivity_tester.has_started_work
 
-    def get_results(
-        self, timeout: Optional[float] = None
-    ) -> Generator[ServerScanResult, None, None]:
+    def get_results(self, timeout: Optional[float] = None) -> Generator[ServerScanResult, None, None]:
         if not self._has_started_work:
             raise ValueError("No scan requests have been submitted")
         stop_event = threading.Event()
@@ -87,9 +79,7 @@ class Scanner:
             connectivity_result: ServerTlsProbingResult,
         ) -> None:
             for inner_observer in self._observers:
-                inner_observer.server_connectivity_test_completed(
-                    server_scan_request, connectivity_result
-                )
+                inner_observer.server_connectivity_test_completed(server_scan_request, connectivity_result)
 
             # Since the server is reachable, queue the actual scan commands
             server_scan_requests_queue.put((server_scan_request, connectivity_result))
@@ -99,9 +89,7 @@ class Scanner:
             connectivity_error: ConnectionToServerFailed,
         ) -> None:
             for inner_observer in self._observers:
-                inner_observer.server_connectivity_test_error(
-                    server_scan_request, connectivity_error
-                )
+                inner_observer.server_connectivity_test_error(server_scan_request, connectivity_error)
 
             # Since the server is not reachable, there is nothing else to do
             server_scan_results_queue.put(
@@ -110,9 +98,7 @@ class Scanner:
                     server_location=server_scan_request.server_location,
                     network_configuration=server_scan_request.network_configuration,
                     connectivity_status=ServerConnectivityStatusEnum.ERROR,
-                    connectivity_error_trace=TracebackException.from_exception(
-                        connectivity_error
-                    ),
+                    connectivity_error_trace=TracebackException.from_exception(connectivity_error),
                     connectivity_result=None,
                     scan_status=ServerScanStatusEnum.ERROR_NO_CONNECTIVITY,
                     scan_result=None,
@@ -172,13 +158,11 @@ class Scanner:
         server_scan_results_queue: ServerScanResultsQueueType,
         time_limit: float,
         stop_event: threading.Event,
-    ):
+    ) -> Generator[ServerScanResult, None, None]:
         start = time.time()
         while (time.time() - start) < time_limit:
             try:
-                server_scan_result = server_scan_results_queue.get(
-                    block=True, timeout=0.5
-                )
+                server_scan_result = server_scan_results_queue.get(block=True, timeout=0.5)
                 server_scan_results_queue.task_done()
                 if isinstance(server_scan_result, NoMoreServerScanRequestsSentinel):
                     # All scans have been completed
