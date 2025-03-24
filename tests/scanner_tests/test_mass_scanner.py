@@ -39,6 +39,7 @@ class TestMassScannerProducerThread:
             per_server_concurrent_connections_count=5,
             server_scan_requests_queue_in=server_scan_requests_queue_in,
             server_scan_results_queue_out=server_scan_results_queue_out,
+            stop_event=threading.Event(),
         )
         mass_scanner_thread.start()
 
@@ -104,6 +105,7 @@ class TestMassScannerProducerThread:
             per_server_concurrent_connections_count=5,
             server_scan_requests_queue_in=server_scan_requests_queue_in,
             server_scan_results_queue_out=server_scan_results_queue_out,
+            stop_event=threading.Event(),
         )
         mass_scanner_thread.start()
 
@@ -145,6 +147,7 @@ class TestMassScannerProducerThread:
             per_server_concurrent_connections_count=5,
             server_scan_requests_queue_in=server_scan_requests_queue_in,
             server_scan_results_queue_out=server_scan_results_queue_out,
+            stop_event=threading.Event(),
         )
         mass_scanner_thread.start()
 
@@ -195,6 +198,7 @@ class TestMassScannerProducerThread:
             per_server_concurrent_connections_count=5,
             server_scan_requests_queue_in=server_scan_requests_queue_in,
             server_scan_results_queue_out=server_scan_results_queue_out,
+            stop_event=threading.Event(),
         )
         mass_scanner_thread.start()
 
@@ -258,6 +262,7 @@ class TestMassScannerProducerThread:
             per_server_concurrent_connections_count=5,
             server_scan_requests_queue_in=server_scan_requests_queue_in,
             server_scan_results_queue_out=server_scan_results_queue_out,
+            stop_event=threading.Event(),
         )
         mass_scanner_thread.start()
 
@@ -326,6 +331,7 @@ class TestMassScannerProducerThread:
             per_server_concurrent_connections_count=2,
             server_scan_requests_queue_in=server_scan_requests_queue_in,
             server_scan_results_queue_out=server_scan_results_queue_out,
+            stop_event=threading.Event(),
         )
         mass_scanner_thread.start()
 

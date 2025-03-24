@@ -66,7 +66,7 @@ class Scanner:
     def _has_started_work(self) -> bool:
         return self._connectivity_tester.has_started_work
 
-    def get_results(self, timeout: float | None = None) -> Generator[ServerScanResult, None, None]:
+    def get_results(self, timeout: Optional[float] = None) -> Generator[ServerScanResult, None, None]:
         if not self._has_started_work:
             raise ValueError("No scan requests have been submitted")
         stop_event = threading.Event()
@@ -153,7 +153,7 @@ class Scanner:
 
     def get_results_with_timeout(
         self,
-        server_scan_results_queue: "queue.Queue[ServerScanResult]",
+        server_scan_results_queue: ServerScanResultsQueueType,
         time_limit: float,
         stop_event: threading.Event,
     ):
