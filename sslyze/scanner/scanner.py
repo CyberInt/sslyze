@@ -66,7 +66,7 @@ class Scanner:
     def _has_started_work(self) -> bool:
         return self._connectivity_tester.has_started_work
 
-    def get_results(self, timeout: float | None = None) -> Generator[ServerScanResult, None, None]:
+    def get_results(self, timeout: Optional[float] = None) -> Generator[ServerScanResult, None, None]:
         if not self._has_started_work:
             raise ValueError("No scan requests have been submitted")
         stop_event = threading.Event()
@@ -75,7 +75,8 @@ class Scanner:
         server_scan_results_queue: ServerScanResultsQueueType = queue.Queue()
 
         def server_connectivity_test_completed_callback(
-            server_scan_request: ServerScanRequest, connectivity_result: ServerTlsProbingResult
+            server_scan_request: ServerScanRequest,
+            connectivity_result: ServerTlsProbingResult,
         ) -> None:
             for inner_observer in self._observers:
                 inner_observer.server_connectivity_test_completed(server_scan_request, connectivity_result)
@@ -84,7 +85,8 @@ class Scanner:
             server_scan_requests_queue.put((server_scan_request, connectivity_result))
 
         def server_connectivity_test_error_callback(
-            server_scan_request: ServerScanRequest, connectivity_error: ConnectionToServerFailed
+            server_scan_request: ServerScanRequest,
+            connectivity_error: ConnectionToServerFailed,
         ) -> None:
             for inner_observer in self._observers:
                 inner_observer.server_connectivity_test_error(server_scan_request, connectivity_error)
@@ -153,10 +155,10 @@ class Scanner:
 
     def get_results_with_timeout(
         self,
-        server_scan_results_queue: "queue.Queue[ServerScanResult]",
+        server_scan_results_queue: ServerScanResultsQueueType,
         time_limit: float,
         stop_event: threading.Event,
-    ):
+    ) -> Generator[ServerScanResult, None, None]:
         start = time.time()
         while (time.time() - start) < time_limit:
             try:
